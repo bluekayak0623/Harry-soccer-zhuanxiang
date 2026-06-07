@@ -2,8 +2,6 @@
 
 足球专项训练动态 Web App，适合部署到 Vercel。
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbluekayak0623%2FHarry-soccer-zhuanxiang)
-
 ## 功能
 
 - 16:9 横向足球场训练界面
@@ -19,3 +17,11 @@
 ## Vercel
 
 此项目是静态站点，Vercel 导入仓库后无需构建命令即可部署。
+
+部署步骤：
+
+1. 打开 https://vercel.com/new/import
+2. 在 Import Git Repository 中选择 GitHub
+3. 搜索 `Harry-soccer-zhuanxiang`
+4. 点击 Import
+5. 保持默认配置，点击 Deploy
