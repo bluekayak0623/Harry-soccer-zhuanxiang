@@ -2,6 +2,8 @@
 
 足球专项训练动态 Web App，适合部署到 Vercel。
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbluekayak0623%2FHarry-soccer-zhuanxiang)
+
 ## 功能
 
 - 16:9 横向足球场训练界面
