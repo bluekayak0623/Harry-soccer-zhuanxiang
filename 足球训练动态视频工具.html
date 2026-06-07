@@ -1,0 +1,785 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>足球训练动态视频工具</title>
+  <style>
+    :root {
+      --grass-a: #236b38;
+      --grass-b: #1f5f32;
+      --grass-c: #2f7d44;
+      --line: rgba(255, 255, 255, 0.94);
+      --box: #f7aa23;
+      --flash: rgba(228, 32, 32, 0.55);
+      --panel: rgba(8, 25, 15, 0.58);
+      --text: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+      background: #102317;
+    }
+
+    body {
+      display: grid;
+      place-items: center;
+    }
+
+    .app {
+      position: relative;
+      width: min(100vw, calc(100vh * 16 / 9));
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.035) 0,
+          rgba(255, 255, 255, 0.035) 7.7%,
+          transparent 7.7%,
+          transparent 15.4%
+        ),
+        linear-gradient(110deg, var(--grass-a), var(--grass-b) 45%, var(--grass-c));
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+    }
+
+    .app::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(0, 0, 0, 0.1), transparent 32%, rgba(255, 255, 255, 0.04));
+      background-size: 24px 24px, 100% 100%;
+      pointer-events: none;
+      opacity: 0.55;
+    }
+
+    .field {
+      position: absolute;
+      left: 3.2%;
+      top: 4.8%;
+      width: 72.2%;
+      height: 90.4%;
+      border: clamp(3px, 0.35vw, 7px) solid var(--line);
+    }
+
+    .field::before,
+    .field::after {
+      content: "";
+      position: absolute;
+      pointer-events: none;
+    }
+
+    .field::before {
+      left: 50%;
+      top: 0;
+      width: clamp(2px, 0.18vw, 4px);
+      height: 100%;
+      background: rgba(255, 255, 255, 0.22);
+      transform: translateX(-50%);
+    }
+
+    .field::after {
+      left: 50%;
+      top: 50%;
+      width: 16%;
+      aspect-ratio: 1;
+      border: clamp(2px, 0.22vw, 4px) solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    .zone {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      width: 13.5%;
+      aspect-ratio: 1.24 / 1;
+      border: clamp(3px, 0.28vw, 6px) solid var(--box);
+      color: #fff;
+      font-size: clamp(22px, 3vw, 64px);
+      font-weight: 800;
+      line-height: 1;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      background: rgba(255, 255, 255, 0.035);
+      transition: transform 150ms ease, box-shadow 150ms ease, background 120ms linear;
+    }
+
+    .zone.start {
+      width: 15.5%;
+      font-size: clamp(17px, 2.05vw, 38px);
+      letter-spacing: 0;
+    }
+
+    .zone.active {
+      background: var(--flash);
+      box-shadow: 0 0 0 clamp(3px, 0.35vw, 8px) rgba(255, 255, 255, 0.55), 0 0 42px rgba(255, 42, 42, 0.72);
+      transform: scale(1.08);
+    }
+
+    .z1 { left: 7.5%; top: 6.5%; }
+    .z2 { left: 43.2%; top: 6.5%; }
+    .z3 { right: 7.5%; top: 6.5%; }
+    .z4 { left: 7.5%; top: 39.5%; }
+    .z5 { right: 7.5%; top: 39.5%; }
+    .z6 { left: 7.5%; bottom: 6.5%; }
+    .z7 { left: 43.2%; bottom: 6.5%; }
+    .z8 { right: 7.5%; bottom: 6.5%; }
+    .start { left: 42.2%; top: 42.2%; }
+
+    .sidebar {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 24.7%;
+      height: 100%;
+      padding: clamp(14px, 1.7vw, 30px);
+      background: linear-gradient(180deg, rgba(9, 30, 18, 0.78), rgba(6, 18, 12, 0.5));
+      border-left: clamp(2px, 0.2vw, 4px) solid rgba(255, 255, 255, 0.7);
+      display: flex;
+      flex-direction: column;
+      gap: clamp(10px, 1.1vw, 18px);
+    }
+
+    .title {
+      margin: 0;
+      font-size: clamp(20px, 2.3vw, 42px);
+      line-height: 1.12;
+      font-weight: 900;
+    }
+
+    .status {
+      display: grid;
+      gap: clamp(8px, 0.75vw, 13px);
+      font-weight: 700;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 7px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      font-size: clamp(13px, 1vw, 19px);
+    }
+
+    .status-row strong {
+      font-size: clamp(18px, 1.55vw, 30px);
+    }
+
+    .timer {
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(52px, 5.5vw, 112px);
+      font-weight: 900;
+      line-height: 0.95;
+    }
+
+    .phase {
+      min-height: 2.5em;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: clamp(14px, 1.1vw, 22px);
+      line-height: 1.25;
+      font-weight: 700;
+    }
+
+    .bars {
+      display: grid;
+      gap: 8px;
+    }
+
+    .bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: clamp(12px, 0.9vw, 16px);
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .bar {
+      height: clamp(8px, 0.7vw, 12px);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .bar span {
+      display: block;
+      width: 0%;
+      height: 100%;
+      background: linear-gradient(90deg, #f7aa23, #ffffff);
+      transition: width 220ms linear;
+    }
+
+    .log {
+      flex: 1;
+      overflow: hidden;
+      display: grid;
+      align-content: start;
+      gap: 7px;
+      font-size: clamp(12px, 0.88vw, 16px);
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .log div {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 9px;
+    }
+
+    button {
+      min-height: clamp(36px, 3vw, 54px);
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      color: #ffffff;
+      background: rgba(0, 0, 0, 0.22);
+      font-size: clamp(14px, 1.05vw, 20px);
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.14);
+    }
+
+    button.primary {
+      border-color: var(--box);
+      background: rgba(247, 170, 35, 0.28);
+    }
+
+    button:disabled {
+      opacity: 0.48;
+      cursor: not-allowed;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0 24.7% 0 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+      background: rgba(0, 0, 0, 0.18);
+      opacity: 0;
+      transition: opacity 180ms ease;
+      z-index: 5;
+    }
+
+    .overlay.show {
+      opacity: 1;
+    }
+
+    .count-number {
+      min-width: 0;
+      color: #ffffff;
+      font-size: clamp(120px, 17vw, 310px);
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: 0 9px 26px rgba(0, 0, 0, 0.52);
+    }
+
+    .message {
+      position: absolute;
+      left: 3.2%;
+      right: 24.7%;
+      bottom: 5.5%;
+      z-index: 6;
+      text-align: center;
+      font-size: clamp(26px, 3.4vw, 72px);
+      font-weight: 900;
+      text-shadow: 0 4px 14px rgba(0, 0, 0, 0.65);
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity 200ms ease, transform 200ms ease;
+      pointer-events: none;
+    }
+
+    .message.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 780px) {
+      .sidebar {
+        padding: 10px;
+        gap: 8px;
+      }
+
+      .status-row {
+        padding-bottom: 5px;
+      }
+
+      .controls {
+        grid-template-columns: 1fr;
+      }
+
+      .log {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-label="足球训练动态视频工具">
+    <section class="field" aria-label="训练场地">
+      <div class="zone z1" data-zone="1">1</div>
+      <div class="zone z2" data-zone="2">2</div>
+      <div class="zone z3" data-zone="3">3</div>
+      <div class="zone z4" data-zone="4">4</div>
+      <div class="zone z5" data-zone="5">5</div>
+      <div class="zone z6" data-zone="6">6</div>
+      <div class="zone z7" data-zone="7">7</div>
+      <div class="zone z8" data-zone="8">8</div>
+      <div class="zone start">出发点</div>
+    </section>
+
+    <aside class="sidebar" aria-label="完成情况">
+      <h1 class="title">完成情况</h1>
+      <div class="timer" id="timer">00:00</div>
+      <div class="phase" id="phase">点击开始后，先倒计时 3、2、1。</div>
+      <div class="status">
+        <div class="status-row"><span>训练组</span><strong id="groupText">0 / 3</strong></div>
+        <div class="status-row"><span>单元</span><strong id="unitText">0 / 3</strong></div>
+        <div class="status-row"><span>闪烁</span><strong id="flashText">0 / 0</strong></div>
+        <div class="status-row"><span>总进度</span><strong id="overallText">0 / 9</strong></div>
+      </div>
+      <div class="bars">
+        <div>
+          <div class="bar-label"><span>当前单元</span><span id="unitPercent">0%</span></div>
+          <div class="bar"><span id="unitBar"></span></div>
+        </div>
+        <div>
+          <div class="bar-label"><span>整组训练</span><span id="overallPercent">0%</span></div>
+          <div class="bar"><span id="overallBar"></span></div>
+        </div>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="controls">
+        <button class="primary" id="startBtn">开始</button>
+        <button id="pauseBtn" disabled>暂停</button>
+        <button id="resetBtn">重置</button>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay">
+      <div class="count-number" id="countNumber">3</div>
+    </div>
+    <div class="message" id="message"></div>
+  </main>
+
+  <script>
+    const GROUPS = 3;
+    const UNITS_PER_GROUP = 3;
+    const UNIT_SECONDS = 60;
+    const ACTIVE_SECONDS = 20;
+    const REST_SECONDS = 40;
+    const GROUP_BREAK_SECONDS = 30;
+    const FLASH_TARGETS = [8, 12, 16];
+
+    const state = {
+      running: false,
+      cancelled: false,
+      paused: false,
+      group: 0,
+      unit: 0,
+      flashCount: 0,
+      completedUnits: 0,
+      voice: null,
+      runId: 0,
+      zoneBag: [],
+      lastZoneId: null,
+      timers: new Set()
+    };
+
+    const els = {
+      zones: [...document.querySelectorAll("[data-zone]")],
+      timer: document.getElementById("timer"),
+      phase: document.getElementById("phase"),
+      groupText: document.getElementById("groupText"),
+      unitText: document.getElementById("unitText"),
+      flashText: document.getElementById("flashText"),
+      overallText: document.getElementById("overallText"),
+      unitPercent: document.getElementById("unitPercent"),
+      overallPercent: document.getElementById("overallPercent"),
+      unitBar: document.getElementById("unitBar"),
+      overallBar: document.getElementById("overallBar"),
+      log: document.getElementById("log"),
+      startBtn: document.getElementById("startBtn"),
+      pauseBtn: document.getElementById("pauseBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      overlay: document.getElementById("overlay"),
+      countNumber: document.getElementById("countNumber"),
+      message: document.getElementById("message")
+    };
+
+    function stopped(runId) {
+      return state.cancelled || runId !== state.runId;
+    }
+
+    function rawDelay(ms) {
+      return new Promise((resolve) => {
+        const timer = setTimeout(() => {
+          state.timers.delete(timer);
+          resolve();
+        }, ms);
+        state.timers.add(timer);
+      });
+    }
+
+    async function delay(ms, runId) {
+      let remaining = ms;
+      let last = performance.now();
+      while (remaining > 0 && !stopped(runId)) {
+        if (state.paused) {
+          await rawDelay(90);
+          last = performance.now();
+          continue;
+        }
+        const chunk = Math.min(remaining, 90);
+        await rawDelay(chunk);
+        const now = performance.now();
+        remaining -= now - last;
+        last = now;
+      }
+    }
+
+    function formatTime(seconds) {
+      const safe = Math.max(0, Math.ceil(seconds));
+      const m = String(Math.floor(safe / 60)).padStart(2, "0");
+      const s = String(safe % 60).padStart(2, "0");
+      return `${m}:${s}`;
+    }
+
+    function pickVoice() {
+      const voices = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+      const preferred = [
+        /Microsoft.*(Yunxi|Kangkang|Huihui|Yaoyao)/i,
+        /(Male|男|Yunxi|Kangkang)/i,
+        /^zh/i,
+        /Chinese|China|Mandarin/i
+      ];
+      for (const pattern of preferred) {
+        const voice = voices.find((item) => pattern.test(`${item.name} ${item.lang}`));
+        if (voice) return voice;
+      }
+      return voices[0] || null;
+    }
+
+    function speak(text, options = {}) {
+      if (!("speechSynthesis" in window)) return;
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "zh-CN";
+      utterance.rate = options.rate || 0.95;
+      utterance.pitch = options.pitch || 0.82;
+      utterance.volume = 1;
+      state.voice = state.voice || pickVoice();
+      if (state.voice) utterance.voice = state.voice;
+      speechSynthesis.speak(utterance);
+    }
+
+    function log(text) {
+      const item = document.createElement("div");
+      item.textContent = text;
+      els.log.prepend(item);
+      while (els.log.children.length > 11) els.log.lastElementChild.remove();
+    }
+
+    function showMessage(text, ms = 1700) {
+      els.message.textContent = text;
+      els.message.classList.add("show");
+      setTimeout(() => els.message.classList.remove("show"), ms);
+    }
+
+    function updateProgress(unitElapsed = 0, phase = "准备") {
+      const totalUnits = GROUPS * UNITS_PER_GROUP;
+      const overall = Math.min(totalUnits, state.completedUnits);
+      const unitPercent = Math.min(100, Math.round((unitElapsed / UNIT_SECONDS) * 100));
+      const overallPercent = Math.min(100, Math.round((overall / totalUnits) * 100));
+
+      els.groupText.textContent = `${state.group || 0} / ${GROUPS}`;
+      els.unitText.textContent = `${state.unit || 0} / ${UNITS_PER_GROUP}`;
+      els.flashText.textContent = `${state.flashCount} / ${FLASH_TARGETS[Math.max(0, state.unit - 1)] || 0}`;
+      els.overallText.textContent = `${overall} / ${totalUnits}`;
+      els.unitPercent.textContent = `${unitPercent}%`;
+      els.overallPercent.textContent = `${overallPercent}%`;
+      els.unitBar.style.width = `${unitPercent}%`;
+      els.overallBar.style.width = `${overallPercent}%`;
+      els.phase.textContent = phase;
+    }
+
+    async function runTimer(seconds, getPhase, onTick, runId) {
+      let elapsed = 0;
+      let last = performance.now();
+      let lastWhole = null;
+      while (!stopped(runId) && elapsed < seconds) {
+        if (state.paused) {
+          await rawDelay(90);
+          last = performance.now();
+          continue;
+        }
+        const now = performance.now();
+        elapsed += Math.max(0, (now - last) / 1000);
+        last = now;
+        const remaining = seconds - elapsed;
+        if (remaining <= 0) break;
+        const whole = Math.ceil(remaining);
+        els.timer.textContent = formatTime(remaining);
+        if (whole !== lastWhole) {
+          lastWhole = whole;
+          if (onTick) onTick(whole, elapsed);
+        }
+        updateProgress(Math.min(UNIT_SECONDS, onTick && onTick.unitElapsed ? onTick.unitElapsed(elapsed) : elapsed), getPhase(whole, elapsed));
+        await rawDelay(90);
+      }
+      els.timer.textContent = formatTime(0);
+    }
+
+    async function startCountdown(runId) {
+      els.overlay.classList.add("show");
+      for (const n of [3, 2, 1]) {
+        if (stopped(runId)) return;
+        els.countNumber.textContent = n;
+        speak(String(n));
+        await delay(1000, runId);
+      }
+      els.overlay.classList.remove("show");
+      speak("开始");
+      showMessage("开始", 900);
+      await delay(300, runId);
+    }
+
+    function clearActiveZones() {
+      els.zones.forEach((zone) => zone.classList.remove("active"));
+    }
+
+    function refillZoneBag() {
+      state.zoneBag = [...els.zones];
+      for (let i = state.zoneBag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [state.zoneBag[i], state.zoneBag[j]] = [state.zoneBag[j], state.zoneBag[i]];
+      }
+      if (state.zoneBag.length > 1 && state.zoneBag[0].dataset.zone === state.lastZoneId) {
+        [state.zoneBag[0], state.zoneBag[1]] = [state.zoneBag[1], state.zoneBag[0]];
+      }
+    }
+
+    function randomZone() {
+      if (state.zoneBag.length === 0) refillZoneBag();
+      const zone = state.zoneBag.shift();
+      state.lastZoneId = zone.dataset.zone;
+      return zone;
+    }
+
+    async function flashZone(index, total, runId) {
+      clearActiveZones();
+      const zone = randomZone();
+      zone.classList.add("active");
+      state.flashCount = index;
+      els.flashText.textContent = `${index} / ${total}`;
+      speak(zone.dataset.zone, { rate: 1.0 });
+      log(`第 ${state.group} 组 / 第 ${state.unit} 单元：闪烁 ${zone.dataset.zone} 号`);
+      await delay(650, runId);
+      zone.classList.remove("active");
+    }
+
+    async function runActivePhase(targetFlashes, runId) {
+      const interval = ACTIVE_SECONDS / targetFlashes;
+      const start = performance.now();
+      state.zoneBag = [];
+      state.lastZoneId = null;
+      for (let i = 1; i <= targetFlashes; i++) {
+        if (stopped(runId)) return;
+        const nextAt = (i - 1) * interval * 1000;
+        const wait = nextAt - (performance.now() - start);
+        if (wait > 0) await delay(wait, runId);
+        await flashZone(i, targetFlashes, runId);
+      }
+
+      while (!stopped(runId) && performance.now() - start < ACTIVE_SECONDS * 1000) {
+        const elapsed = (performance.now() - start) / 1000;
+        els.timer.textContent = formatTime(UNIT_SECONDS - elapsed);
+        updateProgress(elapsed, `训练中：第 ${state.group} 组，第 ${state.unit} 单元`);
+        await delay(90, runId);
+      }
+      clearActiveZones();
+    }
+
+    async function runRestPhase(runId, shouldStartAfterRest) {
+      speak("球员返回出发点");
+      showMessage("球员返回出发点", 1800);
+      log(`第 ${state.group} 组 / 第 ${state.unit} 单元：返回出发点，休息 40 秒`);
+      let lastSpoken = null;
+
+      const tick = (whole, elapsed) => {
+        tick.unitElapsed = () => ACTIVE_SECONDS + elapsed;
+        if (whole <= 5 && whole >= 1 && whole !== lastSpoken) {
+          lastSpoken = whole;
+          speak(String(whole));
+          els.overlay.classList.add("show");
+          els.countNumber.textContent = whole;
+        }
+      };
+      tick.unitElapsed = (elapsed) => ACTIVE_SECONDS + elapsed;
+      await runTimer(REST_SECONDS, () => `休息中：球员返回出发点`, tick, runId);
+      els.overlay.classList.remove("show");
+      if (!stopped(runId) && shouldStartAfterRest) {
+        speak("开始");
+        showMessage("开始", 900);
+        await delay(300, runId);
+      }
+    }
+
+    async function runGroupBreak(runId) {
+      state.unit = 0;
+      state.flashCount = 0;
+      log(`第 ${state.group} 组完成，组间休息 30 秒`);
+      let lastSpoken = null;
+      await runTimer(
+        GROUP_BREAK_SECONDS,
+        (whole) => `组间休息：下一组将在 ${whole} 秒后开始`,
+        (whole) => {
+          if (whole <= 10 && whole >= 1 && whole !== lastSpoken) {
+            lastSpoken = whole;
+            speak(String(whole));
+            els.overlay.classList.add("show");
+            els.countNumber.textContent = whole;
+          }
+        }
+        ,
+        runId
+      );
+      els.overlay.classList.remove("show");
+      if (!stopped(runId)) {
+        speak("开始");
+        showMessage("开始", 900);
+        await delay(300, runId);
+      }
+    }
+
+    async function runUnit(unitIndex, runId) {
+      state.unit = unitIndex;
+      state.flashCount = 0;
+      const target = FLASH_TARGETS[unitIndex - 1];
+      updateProgress(0, `训练中：第 ${state.group} 组，第 ${unitIndex} 单元`);
+      log(`第 ${state.group} 组 / 第 ${unitIndex} 单元开始：20 秒闪烁 ${target} 次`);
+      await runActivePhase(target, runId);
+      if (stopped(runId)) return;
+      await runRestPhase(runId, unitIndex < UNITS_PER_GROUP);
+      if (stopped(runId)) return;
+      state.completedUnits += 1;
+      updateProgress(UNIT_SECONDS, `第 ${state.group} 组，第 ${unitIndex} 单元完成`);
+    }
+
+    async function runTraining() {
+      state.runId += 1;
+      const runId = state.runId;
+      state.running = true;
+      state.cancelled = false;
+      state.paused = false;
+      els.startBtn.disabled = true;
+      els.startBtn.textContent = "运行中";
+      els.pauseBtn.disabled = false;
+      els.pauseBtn.textContent = "暂停";
+      state.voice = pickVoice();
+      await startCountdown(runId);
+
+      for (let group = 1; group <= GROUPS; group++) {
+        if (stopped(runId)) break;
+        state.group = group;
+        for (let unit = 1; unit <= UNITS_PER_GROUP; unit++) {
+          if (stopped(runId)) break;
+          await runUnit(unit, runId);
+        }
+        if (!stopped(runId) && group < GROUPS) {
+          await runGroupBreak(runId);
+        }
+      }
+
+      if (!stopped(runId)) {
+        clearActiveZones();
+        updateProgress(UNIT_SECONDS, "全部训练完成");
+        els.timer.textContent = "完成";
+        speak("训练完成");
+        showMessage("训练完成", 2200);
+        log("全部 3 组训练完成");
+      }
+      if (runId !== state.runId) return;
+      state.running = false;
+      els.startBtn.disabled = false;
+      els.startBtn.textContent = "开始";
+      els.pauseBtn.disabled = true;
+      els.pauseBtn.textContent = "暂停";
+    }
+
+    function resetTraining() {
+      state.runId += 1;
+      state.cancelled = true;
+      state.running = false;
+      state.paused = false;
+      state.group = 0;
+      state.unit = 0;
+      state.flashCount = 0;
+      state.completedUnits = 0;
+      state.zoneBag = [];
+      state.lastZoneId = null;
+      if ("speechSynthesis" in window) speechSynthesis.cancel();
+      clearActiveZones();
+      els.overlay.classList.remove("show");
+      els.message.classList.remove("show");
+      els.timer.textContent = "00:00";
+      els.phase.textContent = "点击开始后，先倒计时 3、2、1。";
+      els.log.innerHTML = "";
+      els.startBtn.disabled = false;
+      els.startBtn.textContent = "开始";
+      els.pauseBtn.disabled = true;
+      els.pauseBtn.textContent = "暂停";
+      updateProgress(0, "点击开始后，先倒计时 3、2、1。");
+    }
+
+    function togglePause() {
+      if (!state.running || state.cancelled) return;
+      state.paused = !state.paused;
+      els.pauseBtn.textContent = state.paused ? "继续" : "暂停";
+      if ("speechSynthesis" in window) {
+        if (state.paused) speechSynthesis.pause();
+        else speechSynthesis.resume();
+      }
+      if (state.paused) {
+        els.phase.textContent = "已暂停：点击继续恢复训练";
+        showMessage("已暂停", 900);
+      } else {
+        showMessage("继续", 700);
+      }
+    }
+
+    els.startBtn.addEventListener("click", () => {
+      if (!state.running) runTraining();
+    });
+
+    els.pauseBtn.addEventListener("click", togglePause);
+    els.resetBtn.addEventListener("click", resetTraining);
+    if ("speechSynthesis" in window) {
+      speechSynthesis.onvoiceschanged = () => {
+        state.voice = pickVoice();
+      };
+    }
+    updateProgress(0, "点击开始后，先倒计时 3、2、1。");
+  </script>
+</body>
+</html>
